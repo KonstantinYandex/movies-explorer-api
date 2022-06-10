@@ -7,7 +7,10 @@ const UnauthorizedError = require('../errors/unauthorized');
 const ConflictError = require('../errors/conflict-error');
 const { JWT_SECRET } = require('../config');
 const {
-  NOT_FOUND_USER, WRONG_EMAIL_OR_PASSWORD, VALIDATION_ERROR, EXIST_EMAIL,
+  NOT_FOUND_USER,
+  WRONG_EMAIL_OR_PASSWORD,
+  VALIDATION_ERROR,
+  EXIST_EMAIL,
 } = require('../utils/constants');
 
 const getMe = (req, res, next) => {
@@ -39,7 +42,9 @@ const login = (req, res, next) => {
 
   return User.findUserByCredentials(email, password)
     .then((user) => {
-      const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
+        expiresIn: '7d',
+      });
 
       return res.send({ token });
     })
@@ -50,26 +55,32 @@ const login = (req, res, next) => {
 };
 
 const createUser = (req, res, next) => {
-  const {
-    name, password, email,
-  } = req.body;
+  const { name, password, email } = req.body;
 
-  bcrypt.hash(password, 10)
+  bcrypt
+    .hash(password, 10)
     .then((hash) => User.create({
-      name, password: hash, email,
+      name,
+      password: hash,
+      email,
     }))
     .then((user) => res.status(200).send({ email: user.email }))
     .catch((err) => {
       if (err.name === 'ValidationError' || err.name === 'CastError') {
-        throw new BadRequestError(VALIDATION_ERROR);
+        next(new BadRequestError(err.message));
       }
-      if (err.name === 'MongoError' || err.code === '11000') {
-        throw new ConflictError(EXIST_EMAIL);
+      if (err.code === 11000) {
+        next(new ConflictError('Пользователь с таким email уже существует'));
+      } else {
+        next(err);
       }
     })
     .catch(next);
 };
 
 module.exports = {
-  createUser, login, getMe, updateMe,
+  createUser,
+  login,
+  getMe,
+  updateMe,
 };

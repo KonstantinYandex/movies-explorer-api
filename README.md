@@ -13,4 +13,4 @@ API дипломного проекта по поиску фильмов
 `npm run dev` — запускает сервер с hot-reload
 
 ## Адрес домена
-https://api.tyumenmovies.nomoredomains.monster/users/me
+https://api.movies-konstantin.nomoredomains.xyz/
