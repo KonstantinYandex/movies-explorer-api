@@ -1,86 +1,141 @@
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const NotFoundError = require('../errors/not-found-error');
-const BadRequestError = require('../errors/bad-request');
-const UnauthorizedError = require('../errors/unauthorized');
-const ConflictError = require('../errors/conflict-error');
-const { JWT_SECRET } = require('../config');
+
+// Нужен для создания токена
+
+//* Конфигурация
+const config = require('../utils/movies.config');
+
+const { NODE_ENV, JWT_SECRET = 'dev-secret' } = process.env;
+//*
+
+// Ошибки
+const BadRequest = require('../errorsHandler/BadRequest');
+const Conflict = require('../errorsHandler/Conflict');
+const NotFoundError = require('../errorsHandler/NotFoundError');
+
+//* Сообщения ошибок
+const { errorMessage } = require('../utils/constants');
+
 const {
-  NOT_FOUND_USER,
-  WRONG_EMAIL_OR_PASSWORD,
-  VALIDATION_ERROR,
-  EXIST_EMAIL,
-} = require('../utils/constants');
+  users: {
+    invalidDataСreatingUser,
+    userExistsEmail,
+    invalidDataUpdatingProfile,
+    userNotExists,
+    userNotFound,
+  },
+} = errorMessage;
+//*
 
-const getMe = (req, res, next) => {
-  User.findById(req.user._id)
+// * Аутентификация и авторизация
+const createUser = (req, res, next) => {
+  const body = { ...req.body };
+
+  // Пароль хэшируется в момент сохранения в БД, в моделе, хуком.
+  User.create(body)
     .then((user) => {
-      if (!user) {
-        throw new NotFoundError(NOT_FOUND_USER);
-      }
-      return res.status(200).send({ data: user });
+      res.send({
+        name: user.name,
+        email: user.email,
+        _id: user._id,
+      });
     })
-    .catch(next);
+    .catch((err) => {
+      if (err.name === 'ValidationError') {
+        return next(new BadRequest(invalidDataСreatingUser));
+      }
+      // err.name = MongoError и err.code = 11000
+      if (err.name === 'MongoError') {
+        return next(new Conflict(userExistsEmail));
+      }
+      return next(err.message);
+    });
 };
 
-const updateMe = (req, res, next) => {
-  const { name, email } = req.body;
-  const owner = req.user._id;
-  return User.findByIdAndUpdate(owner, { name, email }, { new: true })
-    .then((user) => {
-      if (!user) {
-        throw new NotFoundError(NOT_FOUND_USER);
-      }
-      res.send(user);
-    })
-    .catch(next);
-};
-
-const login = (req, res, next) => {
+const logIn = (req, res, next) => {
   const { email, password } = req.body;
 
-  return User.findUserByCredentials(email, password)
+  // Применил собственный метод
+  User.findUserByCredentials(email, password, next)
     .then((user) => {
-      const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
-        expiresIn: '7d',
-      });
+      // jwt.sign - создать токен. Первый параметр id, для хэша, второй токен, третий время жизни
+      const token = jwt.sign(
+        { _id: user._id },
+        NODE_ENV === 'production' ? JWT_SECRET : config.jwtSecretDev,
+        { expiresIn: '7d' },
+      );
 
+      // В res.send переданное значение должно быть типа объект.
+      // Иначе express вернет тип text/html для переданого значения
       return res.send({ token });
     })
-    .catch(() => {
-      throw new UnauthorizedError(WRONG_EMAIL_OR_PASSWORD);
+    .catch((err) => {
+      if (err.name === 'ValidationError') {
+        return next(new BadRequest(invalidDataСreatingUser));
+      }
+      return next(err.message);
+    });
+};
+// *
+
+const getProfile = (req, res, next) => {
+  const id = req.user._id;
+  // const id = '612b657497f4ab1e90773770';
+
+  User.findById(id)
+    .then((user) => {
+      if (user) {
+        return res.send({
+          email: user.email,
+          name: user.name,
+        });
+      }
+      return next(new NotFoundError(userNotExists));
     })
-    .catch(next);
+    .catch((err) => {
+      if (err.name === 'CastError') {
+        return next(new BadRequest(userNotExists));
+      }
+      return next(err.message);
+    });
 };
 
-const createUser = (req, res, next) => {
-  const { name, password, email } = req.body;
+const updateProfile = (req, res, next) => {
+  const id = req.user._id;
+  // const id = '612b657497f4ab1e90773770';
 
-  bcrypt
-    .hash(password, 10)
-    .then((hash) => User.create({
-      name,
-      password: hash,
-      email,
-    }))
-    .then((user) => res.status(200).send({ email: user.email }))
-    .catch((err) => {
-      if (err.name === 'ValidationError' || err.name === 'CastError') {
-        next(new BadRequestError(err.message));
-      }
-      if (err.code === 11000) {
-        next(new ConflictError('Пользователь с таким email уже существует'));
-      } else {
-        next(err);
-      }
+  const { email, name } = req.body;
+
+  User.findByIdAndUpdate(id, { email, name },
+    {
+      new: true, // обработчик then получит на вход обновлённую запись
+      runValidators: true, // данные будут валидированы перед изменением
+      // upsert: false // если пользователь не найден, он будет создан
     })
-    .catch(next);
+    .then((user) => {
+      res.send({
+        email: user.email,
+        name: user.name,
+      });
+    })
+    .catch((err) => {
+      if (err.name === 'ValidationError') {
+        return next(new BadRequest(invalidDataUpdatingProfile));
+      }
+      if (err.name === 'CastError') {
+        return next(new BadRequest(userNotFound));
+      }
+      if (err.name === 'MongoError') {
+        return next(new Conflict(userExistsEmail));
+      }
+      return next(err.message);
+    });
 };
 
 module.exports = {
   createUser,
-  login,
-  getMe,
-  updateMe,
+  logIn,
+  getProfile,
+  updateProfile,
 };

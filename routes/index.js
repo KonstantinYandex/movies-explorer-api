@@ -1,13 +1,20 @@
+// Подключаю специальный метод Router для работы с маршрутами
 const router = require('express').Router();
-const routerUsers = require('./user');
-const routerMovies = require('./movie');
-const NotFoundError = require('../errors/not-found-error');
 
-router.use(routerUsers);
-router.use(routerMovies);
+// Ошибки
+const NotFoundError = require('../errorsHandler/NotFoundError');
 
-router.use('*', () => {
-  throw new NotFoundError('Запрашиваемый ресурс не найден');
-});
+// Мидлвэа для защиты маршрутов
+const { auth } = require('../middlewares/auth');
+
+const routerAuth = require('./auth');
+const routerUsers = require('./users');
+const routerMovies = require('./movies');
+
+router.use('/', routerAuth);
+router.use('/users', auth, routerUsers);
+router.use('/movies', auth, routerMovies);
+// Если нет корректного маршрута
+router.use(auth, (req, res, next) => next(new NotFoundError('Запрашиваемый ресурс не найден')));
 
 module.exports = router;

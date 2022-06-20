@@ -1,76 +1,70 @@
 const mongoose = require('mongoose');
+
+// Простой пакет для валидации данных
 const validator = require('validator');
-const { REQUIRED_INPUT, IS_LINK } = require('../utils/constants');
+
+// Спасибо
+const validationUrl = {
+  validate: {
+    validator(url) {
+      return validator.isURL(url);
+    },
+    message: 'Неккоректный url адрес',
+  },
+};
 
 const movieSchema = new mongoose.Schema({
   country: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   director: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   duration: {
     type: Number,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   year: {
-    type: Number,
-    required: [true, REQUIRED_INPUT],
+    type: String,
+    required: true,
   },
   description: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   image: {
     type: String,
     required: true,
-    validate: {
-      validator(v) {
-        return validator.isURL(v);
-      },
-      message: IS_LINK,
-    },
+    ...validationUrl,
   },
-  trailerLink: {
+  trailer: {
     type: String,
     required: true,
-    validate: {
-      validator(v) {
-        return validator.isURL(v);
-      },
-      message: IS_LINK,
-    },
+    ...validationUrl,
   },
   thumbnail: {
     type: String,
     required: true,
-    validate: {
-      validator(v) {
-        return validator.isURL(v);
-      },
-      message: IS_LINK,
-    },
+    ...validationUrl,
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'user',
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   movieId: {
     type: Number,
-    ref: 'movie',
-    required: [true, REQUIRED_INPUT],
-    unique: true,
+    required: true,
   },
   nameRU: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
   nameEN: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
   },
 });
 
