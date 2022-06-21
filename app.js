@@ -8,7 +8,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 // const cors = require('cors');
 const { port, mongoAdress } = require('./utils/constanta');
-const rateLimiter = require('./middlewares/rate-limit');
+
 const { requestLogger, errorLogger } = require('./middlewares/logger');
 const errorHandler = require('./middlewares/errors');
 const router = require('./routes/index');
@@ -41,7 +41,7 @@ const cors = (req, res, next) => {
 app.use(cors);
 
 app.use(requestLogger);
-app.use(rateLimiter);
+// app.use(rateLimiter);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
