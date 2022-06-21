@@ -1,24 +1,18 @@
-// Подключаю специальный метод Router для работы с маршрутами
-const router = require('express').Router();
-// Joi schemes
-const { createMovieJoi, deleteMovieJoi } = require('../middlewares/joiSchemes');
+const movieRouter = require('express').Router();
 
 const {
+  validateCreateMovie,
+  validateDeleteMovie,
+} = require('../middlewares/validator');
+
+const {
+  getMovies,
   createMovie,
-  getMovie,
   deleteMovie,
 } = require('../controllers/movies');
 
-router.get('/', getMovie);
-router.post(
-  '/',
-  createMovieJoi,
-  createMovie,
-);
-router.delete(
-  '/:movieId',
-  deleteMovieJoi,
-  deleteMovie,
-);
+movieRouter.get('/movies', getMovies);
+movieRouter.post('/movies', validateCreateMovie, createMovie);
+movieRouter.delete('/movies/:movieId', validateDeleteMovie, deleteMovie);
 
-module.exports = router;
+module.exports = movieRouter;

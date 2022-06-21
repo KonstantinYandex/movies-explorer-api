@@ -1,15 +1,16 @@
-// Подключаю специальный метод Router для работы с маршрутами
-const router = require('express').Router();
-const { getProfile, updateProfile } = require('../controllers/users');
+const userRouter = require('express').Router();
 
-// Joi schemes
-const { updateProfileJoi } = require('../middlewares/joiSchemes');
+const {
+  validateId,
+  validateUpdateProfile,
+} = require('../middlewares/validator');
 
-router.get('/me', getProfile);
-router.patch(
-  '/me',
-  updateProfileJoi,
+const {
+  getUserId,
   updateProfile,
-);
+} = require('../controllers/users');
 
-module.exports = router;
+userRouter.get('/users/me', validateId, getUserId);
+userRouter.patch('/users/me', validateUpdateProfile, updateProfile);
+
+module.exports = userRouter;

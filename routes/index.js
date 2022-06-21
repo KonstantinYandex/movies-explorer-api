@@ -1,20 +1,32 @@
-// Подключаю специальный метод Router для работы с маршрутами
 const router = require('express').Router();
 
-// Ошибки
-const NotFoundError = require('../errorsHandler/NotFoundError');
+const {
+  validateSignin,
+  validateSignup,
+} = require('../middlewares/validator');
 
-// Мидлвэа для защиты маршрутов
-const { auth } = require('../middlewares/auth');
+const {
+  login,
+  createUser,
+  logout,
+} = require('../controllers/users');
 
-const routerAuth = require('./auth');
-const routerUsers = require('./users');
-const routerMovies = require('./movies');
+const auth = require('../middlewares/auth');
 
-router.use('/', routerAuth);
-router.use('/users', auth, routerUsers);
-router.use('/movies', auth, routerMovies);
-// Если нет корректного маршрута
-router.use(auth, (req, res, next) => next(new NotFoundError('Запрашиваемый ресурс не найден')));
+const userRouter = require('./users');
+const movieRouter = require('./movies');
+
+const NotFoundError = require('../errors/not-found-error');
+
+router.post('/signin', validateSignin, login);
+router.post('/signup', validateSignup, createUser);
+router.get('/signout', logout);
+
+router.use(auth, userRouter);
+router.use(auth, movieRouter);
+
+router.use('/*', () => {
+  throw new NotFoundError('Запрашиваемый ресурс не найден');
+});
 
 module.exports = router;

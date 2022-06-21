@@ -1,88 +1,62 @@
-// Модель
 const Movie = require('../models/movie');
 
-// Ошибки
-const NotFoundError = require('../errorsHandler/NotFoundError');
-const BadRequest = require('../errorsHandler/BadRequest');
-const Forbidden = require('../errorsHandler/Forbidden');
+const NotFoundError = require('../errors/not-found-error');
+const BadRequestError = require('../errors/bad-request-error');
+const ForbiddenError = require('../errors/forbidden-error');
 
-//* Сообщения ошибок
-const { errorMessage } = require('../utils/constants');
-
-const {
-  movies: {
-    invalidDataСreatingMovie,
-    movieNotExists,
-    movieByIdNotFound,
-    movieAnotherUserNotDelete,
-  },
-} = errorMessage;
-//*
-
-const createMovie = (req, res, next) => {
-  const body = { ...req.body };
-
-  const id = req.user._id;
-  // const id = '612b657497f4ab1e90773770';
-
-  Movie.create({ ...body, owner: id })
-    .then((movie) => {
-      res.send(movie);
-    })
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        next(new BadRequest(invalidDataСreatingMovie));
-      }
-      next(err.message);
-    });
-};
-
-const getMovie = (req, res, next) => {
-  // Ищу по полю owner
+const getMovies = (req, res, next) => {
   const owner = req.user._id;
 
   Movie.find({ owner })
-    .then((movies) => res.send(movies))
-    .catch((err) => next(err.message));
+    .orFail(new NotFoundError('Передан несуществующий id пользователя.'))
+    .then((cards) => {
+      res.send(cards);
+    })
+    .catch((err) => {
+      next(err);
+    })
+    .catch(next);
+};
+
+const createMovie = (req, res, next) => {
+  const owner = req.user._id;
+
+  Movie.create({ owner, ...req.body })
+    .then((movie) => {
+      res.status(201).send({ data: movie });
+    })
+    .catch((err) => {
+      if (err.name === 'ValidationError') {
+        throw new BadRequestError('Переданы некорректные данные при создании фильма');
+      }
+    })
+    .catch(next);
 };
 
 const deleteMovie = (req, res, next) => {
+  const owner = req.user._id;
   const { movieId } = req.params;
-
-  const id = req.user._id;
-  // const id = '612b657497f4ab1e90773770';
 
   Movie.findById(movieId)
     .then((movie) => {
       if (!movie) {
-        // Круто. Спасибо. Оставлю на будущее return чтоб подсматреть
-        return next(new NotFoundError(movieNotExists));
-        // return;
+        throw new NotFoundError('Передан несуществующий _id фильма.');
       }
-
-      // То что нужно. Спасибо
-      return movie;
-    })
-    .then((movie) => {
-      // Если это карточка пользователя, удалим ее
-      if (movie.owner.toString() === id) {
-        Movie.findByIdAndRemove(movieId)
-          .then((movieRemove) => res.send(movieRemove));
+      if (movie.owner.toString() !== owner) {
+        throw new ForbiddenError('Нет доступа к удалению фильма.');
       } else {
-        // Если это карточка не пользователя, выведем ему сообщение
-        next(new Forbidden(movieAnotherUserNotDelete));
+        Movie.findByIdAndDelete(movieId)
+          .then((deletedMovie) => {
+            res.send({ data: deletedMovie });
+          })
+          .catch(next);
       }
     })
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        return next(new BadRequest(movieByIdNotFound));
-      }
-      return next(err.message);
-    });
+    .catch(next);
 };
 
 module.exports = {
+  getMovies,
   createMovie,
-  getMovie,
   deleteMovie,
 };

@@ -1,73 +1,50 @@
-const mongoose = require('mongoose');
-const express = require('express');
-
-// dotenv позволяет писать конструкции
 require('dotenv').config();
 
-// Обработка ошибок в routes
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose');
 const { errors } = require('celebrate');
-
-// Защита заголовков
 const helmet = require('helmet');
-
-// Зашитится от автоматических входов
-const limiter = require('./utils/limiter');
-
-// Конфигурация
-const config = require('./utils/movies.config');
-
-// Логи ошибок, запись ошибок в файл
-const { requestLogger, errorLoger } = require('./middlewares/logger');
-
-// Мидлвэа, центральный обработчик ошибок
-const errHandler = require('./middlewares/errHandler');
-
-// Мидлвэа, обработчика CORS
-const handlerCors = require('./middlewares/handlerCors');
-
-// routes
-const routerApp = require('./routes/index');
-
-const { NODE_ENV, MONGO_DB_URL } = process.env;
-
-const { PORT = 3000 } = process.env;
-
-// Подключение к БД
-const dbUrl = NODE_ENV === 'production' ? MONGO_DB_URL : config.dbUrlDev;
-// options отвечают за обновление mongoose
-mongoose.connect(dbUrl, {
-  useNewUrlParser: true,
-  useCreateIndex: true,
-  useFindAndModify: false,
-  useUnifiedTopology: true,
-});
+const cookieParser = require('cookie-parser');
+const cors = require('cors');
+const { port, mongoAdress, allowedCors } = require('./utils/constanta');
+const rateLimiter = require('./middlewares/rate-limit');
+const { requestLogger, errorLogger } = require('./middlewares/logger');
+const errorHandler = require('./middlewares/errors');
+const router = require('./routes/index');
 
 const app = express();
 
-// CORS
-app.use(handlerCors);
+const { PORT = port, MONGO_ADRESS, NODE_ENV } = process.env;
 
-app.use(helmet());
+mongoose.connect(NODE_ENV === 'production' ? MONGO_ADRESS : mongoAdress);
 
-// Подключение встроенного парсера в express, чтобы вытаскивать из тела данные
-app.use(express.json());
-
-// Логгер запросов подключаю до всех маршрутов.
-// Подключается перед limiter, так как тот не записывает запросы в log, которые отклонил
 app.use(requestLogger);
+app.use(rateLimiter);
+app.use(cors({
+  option: allowedCors,
+  origin: allowedCors,
+  credentials: true,
+}));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(helmet());
+app.use(cookieParser());
 
-app.use(limiter);
+app.get('/crash-test', () => {
+  setTimeout(() => {
+    throw new Error('Сервер сейчас упадёт');
+  }, 0);
+});
 
-// routes
-app.use('/api', routerApp);
+app.use('/', router);
 
-// Логгер ошибок. Подключаю после всех маршрутов, но до обработки ошибок
-app.use(errorLoger);
+app.use(errorLogger);
 
-// Обработка ошибок celebrate
 app.use(errors());
 
-// Подключаю ко всем маршрутам, центральный обработчик ошибок. В конце файла
-app.use(errHandler);
+app.use(errorHandler);
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`); /* eslint-disable-line no-console */
+});

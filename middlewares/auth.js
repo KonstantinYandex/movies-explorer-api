@@ -1,33 +1,23 @@
 const jwt = require('jsonwebtoken');
 
-// dev-secret в случае если .env отсутсвует, или в нем нет токена, при разработке
-const { JWT_SECRET = 'dev-secret' } = process.env;
+const NotAuthError = require('../errors/not-auth-error');
 
-const UnauthorizedError = require('../errorsHandler/UnauthorizedError');
+const { NODE_ENV, JWT_SECRET } = process.env;
 
-// Мидлвэа для защиты маршрутов. Если пользователь не зашел
-module.exports.auth = (req, res, next) => {
-  // Приходит от сервера с заголовками. authorization: TOKEN. Если конкретный пользователь вошел,
-  // клиент отправит токен в знак подтверждения, иначе токена не будет.
-  // Но мы также делали отдельный запрос checkTokenApi
-  const { authorization } = req.headers;
+module.exports = (req, res, next) => {
+  const token = req.cookies.jwt;
 
-  // убеждаемся, что он есть или начинается с Bearer
-  if (!authorization || !authorization.startsWith('Bearer ')) {
-    next(new UnauthorizedError('Необходимо авторизироваться'));
+  if (!token) {
+    next(new NotAuthError('К этому ресурсу есть доступ только для авторизированных пользователей'));
   }
 
   let payload;
-
-  // Вместо if
   try {
-    const token = authorization.replace('Bearer ', '');
-    payload = jwt.verify(token, JWT_SECRET);
+    payload = jwt.verify(token, NODE_ENV === 'production' ? JWT_SECRET : 'dev-secret');
   } catch (err) {
-    next(new UnauthorizedError('Необходимо авторизироваться'));
+    throw new NotAuthError('Необходима авторизация');
   }
+  req.user = payload;
 
-  req.user = payload; // записываем пейлоуд в объект запроса
-
-  next();
+  return next();
 };
