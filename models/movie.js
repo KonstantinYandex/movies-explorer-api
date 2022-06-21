@@ -1,90 +1,76 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
+const { REQUIRED_INPUT, IS_LINK } = require('../utils/constants');
 
 const movieSchema = new mongoose.Schema({
   country: {
     type: String,
-    minlength: 2,
-    required: true,
+    required: [true, REQUIRED_INPUT],
   },
   director: {
     type: String,
-    minlength: 2,
-    required: true,
+    required: [true, REQUIRED_INPUT],
   },
   duration: {
     type: Number,
-    minlength: 2,
-    required: true,
+    required: [true, REQUIRED_INPUT],
   },
   year: {
-    type: String,
-    minlength: 2,
-    required: true,
+    type: Number,
+    required: [true, REQUIRED_INPUT],
   },
   description: {
     type: String,
-    minlength: 2,
-    required: true,
+    required: [true, REQUIRED_INPUT],
   },
   image: {
     type: String,
     required: true,
     validate: {
-      validator(url) {
-        return validator.isURL(url);
+      validator(v) {
+        return validator.isURL(v);
       },
-      message: 'Ссылка не подходит',
+      message: IS_LINK,
     },
   },
-  trailer: {
+  trailerLink: {
     type: String,
     required: true,
     validate: {
-      validator(url) {
-        return validator.isURL(url);
+      validator(v) {
+        return validator.isURL(v);
       },
-      message: 'Ссылка не подходит',
+      message: IS_LINK,
     },
   },
   thumbnail: {
     type: String,
     required: true,
     validate: {
-      validator(url) {
-        return validator.isURL(url);
+      validator(v) {
+        return validator.isURL(v);
       },
-      message: 'Ссылка не подходит',
+      message: IS_LINK,
     },
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'user',
-    required: true,
+    required: [true, REQUIRED_INPUT],
   },
   movieId: {
     type: Number,
-    required: true,
+    ref: 'movie',
+    required: [true, REQUIRED_INPUT],
+    unique: true,
   },
   nameRU: {
     type: String,
-    minlength: 2,
-    required: true,
-    validate: {
-      validator(name) {
-        return /[а-я.:!?"«»;@%№()*#,ё\s]/gi.test(name);
-      },
-    },
+    required: [true, REQUIRED_INPUT],
   },
   nameEN: {
     type: String,
-    minlength: 2,
-    required: true,
-    validate: {
-      validator(name) {
-        return /[\w.:!?"«»;@%№()*#,\s]/gi.test(name);
-      },
-    },
+    required: [true, REQUIRED_INPUT],
   },
 });
 

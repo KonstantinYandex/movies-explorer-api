@@ -1,50 +1,40 @@
 require('dotenv').config();
-
 const express = require('express');
-const bodyParser = require('body-parser');
+const helmet = require('helmet');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
-const helmet = require('helmet');
-const cookieParser = require('cookie-parser');
-const cors = require('cors');
-const { port, mongoAdress, allowedCors } = require('./utils/constanta');
-const rateLimiter = require('./middlewares/rate-limit');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
-const errorHandler = require('./middlewares/errors');
+const clientErrorHandler = require('./middlewares/clientErrorHandler');
 const router = require('./routes/index');
+const limiter = require('./middlewares/limiter');
 
+const { PORT = 3000, DB_ADDRESS = 'mongodb://localhost:27017/moviesdb' } = process.env;
 const app = express();
 
-const { PORT = port, MONGO_ADRESS, NODE_ENV } = process.env;
+mongoose.connect(DB_ADDRESS, {
+  useNewUrlParser: true,
+  useCreateIndex: true,
+  useFindAndModify: false,
+  useUnifiedTopology: true,
+});
 
-mongoose.connect(NODE_ENV === 'production' ? MONGO_ADRESS : mongoAdress);
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.send(200);
+  }
+  next();
+});
 
-app.use(requestLogger);
-app.use(rateLimiter);
-app.use(cors({
-  option: allowedCors,
-  origin: allowedCors,
-  credentials: true,
-}));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(helmet());
-app.use(cookieParser());
-
-app.get('/crash-test', () => {
-  setTimeout(() => {
-    throw new Error('Сервер сейчас упадёт');
-  }, 0);
-});
-
-app.use('/', router);
-
-app.use(errorLogger);
-
+app.use(requestLogger);
+app.use(limiter);
+app.use(router);
 app.use(errors());
+app.use(errorLogger);
+app.use(clientErrorHandler);
 
-app.use(errorHandler);
-
-app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`); /* eslint-disable-line no-console */
-});
+app.listen(PORT);
