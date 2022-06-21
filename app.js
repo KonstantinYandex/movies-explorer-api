@@ -7,7 +7,7 @@ const { errors } = require('celebrate');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 // const cors = require('cors');
-const { port, mongoAdress, allowedCors } = require('./utils/constanta');
+const { port, mongoAdress } = require('./utils/constanta');
 const rateLimiter = require('./middlewares/rate-limit');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
 const errorHandler = require('./middlewares/errors');
@@ -21,10 +21,9 @@ mongoose.connect(NODE_ENV === 'production' ? MONGO_ADRESS : mongoAdress);
 
 app.use(requestLogger);
 app.use(rateLimiter);
+
 const cors = (req, res, next) => {
   const { origin } = req.headers;
-  console.log(origin);
-  console.log('11111');
   const { method } = req;
   const requestHeaders = req.headers['access-control-request-headers'];
   const DEFAULT_ALLOWED_METHODS = 'GET,HEAD,PUT,PATCH,POST,DELETE';
