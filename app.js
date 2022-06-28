@@ -1,68 +1,40 @@
 require('dotenv').config();
-
 const express = require('express');
-const bodyParser = require('body-parser');
+const helmet = require('helmet');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
-const helmet = require('helmet');
-const cookieParser = require('cookie-parser');
-// const cors = require('cors');
-const rateLimiter = require('./middlewares/rate-limit');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
-const errorHandler = require('./middlewares/errors');
+const clientErrorHandler = require('./middlewares/clientErrorHandler');
 const router = require('./routes/index');
-
-const app = express();
+const limiter = require('./middlewares/limiter');
 
 const { PORT = 3000, DB_ADDRESS = 'mongodb://localhost:27017/moviesdb' } = process.env;
+const app = express();
 
 mongoose.connect(DB_ADDRESS, {
   useNewUrlParser: true,
+  useCreateIndex: true,
+  useFindAndModify: false,
+  useUnifiedTopology: true,
 });
-app.use(requestLogger);
-app.use(rateLimiter);
 
-const cors = (req, res, next) => {
-  const { origin } = req.headers;
-  console.log(origin);
-  console.log('11111');
-  const { method } = req;
-  const requestHeaders = req.headers['access-control-request-headers'];
-  const DEFAULT_ALLOWED_METHODS = 'GET,HEAD,PUT,PATCH,POST,DELETE';
-
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Credentials', true);
-
-  if (method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', DEFAULT_ALLOWED_METHODS);
-    res.header('Access-Control-Allow-Headers', requestHeaders);
-
-    return res.end();
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.send(200);
   }
+  next();
+});
 
-  return next();
-};
-
-app.use(cors);
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(helmet());
-app.use(cookieParser());
-
-app.get('/crash-test', () => {
-  setTimeout(() => {
-    throw new Error('Сервер сейчас упадёт');
-  }, 0);
-});
-
-app.use('/', router);
-
-app.use(errorLogger);
-
+app.use(requestLogger);
+app.use(limiter);
+app.use(router);
 app.use(errors());
+app.use(errorLogger);
+app.use(clientErrorHandler);
 
-app.use(errorHandler);
-
-app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`); /* eslint-disable-line no-console */
-});
+app.listen(PORT);
