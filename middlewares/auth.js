@@ -1,21 +1,21 @@
 const jwt = require('jsonwebtoken');
-const UnauthorizedError = require('../errors/unauthorized');
-const { JWT_SECRET } = require('../config');
-const { NEED_TO_AUTHORIZE } = require('../utils/constants');
+
+const NotAuthError = require('../errors/not-auth-error');
+
+const { NODE_ENV, JWT_SECRET } = process.env;
 
 module.exports = (req, res, next) => {
-  // const token = req.headers.authorization;
-  const { authorization } = req.headers;
+  const token = req.cookies.jwt;
 
-  if (!authorization || !authorization.startsWith('Bearer ')) {
-    throw new UnauthorizedError(NEED_TO_AUTHORIZE);
+  if (!token) {
+    next(new NotAuthError('К этому ресурсу есть доступ только для авторизированных пользователей'));
   }
-  const token = authorization.replace('Bearer ', '');
+
   let payload;
   try {
-    payload = jwt.verify(token, JWT_SECRET);
+    payload = jwt.verify(token, NODE_ENV === 'production' ? JWT_SECRET : 'dev-secret');
   } catch (err) {
-    throw new UnauthorizedError(NEED_TO_AUTHORIZE);
+    throw new NotAuthError('Необходима авторизация');
   }
   req.user = payload;
 

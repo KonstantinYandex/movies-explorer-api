@@ -1,47 +1,29 @@
 const mongoose = require('mongoose');
-const validator = require('validator');
-const bcrypt = require('bcryptjs');
-const { REQUIRED_INPUT, WRONG_EMAIL_OR_PASSWORD, NOT_VALID_EMAIL } = require('../utils/constants');
+const { isEmail } = require('validator');
 
 const userSchema = new mongoose.Schema({
-  name: {
+  email: {
     type: String,
-    required: [true, REQUIRED_INPUT],
-    minlength: [2, 'Минимальная длина 2 символа'],
-    maxlength: [30, 'Максимальная длина 30 символов'],
+    required: true,
+    unique: true,
+    validate: {
+      validator: (email) => isEmail(email),
+      message: 'Не подходящий адрес электронной почты',
+    },
   },
   password: {
     type: String,
-    required: [true, REQUIRED_INPUT],
+    required: true,
+    minlength: 5,
     select: false,
   },
-  email: {
+  name: {
     type: String,
-    required: [true, REQUIRED_INPUT],
-    unique: true,
-    validate: {
-      validator(v) {
-        return validator.isEmail(v);
-      },
-      message: NOT_VALID_EMAIL,
-    },
+    required: true,
+    minlength: 2,
+    maxlength: 30,
+    default: `User${Math.floor(Math.random() * 100)}`,
   },
 });
-
-userSchema.statics.findUserByCredentials = function findUser(email, password) {
-  return this.findOne({ email }).select('+password')
-    .then((user) => {
-      if (!user) {
-        return Promise.reject(new Error(WRONG_EMAIL_OR_PASSWORD));
-      }
-      return bcrypt.compare(password, user.password)
-        .then((matched) => {
-          if (!matched) {
-            return Promise.reject(new Error(WRONG_EMAIL_OR_PASSWORD));
-          }
-          return user;
-        });
-    });
-};
 
 module.exports = mongoose.model('user', userSchema);
