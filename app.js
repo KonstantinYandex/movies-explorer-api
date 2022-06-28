@@ -19,9 +19,9 @@ const { PORT = 3000, DB_ADDRESS = 'mongodb://localhost:27017/moviesdb' } = proce
 mongoose.connect(DB_ADDRESS, {
   useNewUrlParser: true,
 });
-
 app.use(requestLogger);
 app.use(rateLimiter);
+
 const cors = (req, res, next) => {
   const { origin } = req.headers;
   console.log(origin);
@@ -44,7 +44,6 @@ const cors = (req, res, next) => {
 };
 
 app.use(cors);
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(helmet());
